@@ -314,7 +314,9 @@ impl QueryBuilder for PostgresQueryBuilder {
                     PgFunc::StartsWith => "STARTS_WITH",
                     PgFunc::GenRandomUUID => "GEN_RANDOM_UUID",
                     PgFunc::JsonBuildObject => "JSON_BUILD_OBJECT",
+                    PgFunc::JsonbBuildObject => "JSONB_BUILD_OBJECT",
                     PgFunc::JsonAgg => "JSON_AGG",
+                    PgFunc::JsonbAgg => "JSONB_AGG",
                     PgFunc::ArrayAgg => "ARRAY_AGG",
                     PgFunc::DateTrunc => "DATE_TRUNC",
                     PgFunc::Any => "ANY",
@@ -431,9 +433,7 @@ impl QueryBuilder for PostgresQueryBuilder {
 
     fn write_bytes(&self, bytes: &[u8], buffer: &mut impl Write) {
         buffer.write_str("'\\x").unwrap();
-        for b in bytes {
-            write!(buffer, "{b:02X}").unwrap();
-        }
+        write_hex(buffer, bytes);
         buffer.write_str("'").unwrap();
     }
 
