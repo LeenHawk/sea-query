@@ -41,22 +41,6 @@ impl IndexColumn {
         }
     }
 
-    pub(crate) fn operator_class(&self) -> &Option<DynIden> {
-        match self {
-            IndexColumn::TableColumn(IndexColumnTableColumn { operator_class, .. }) => {
-                operator_class
-            }
-            IndexColumn::Expr(IndexColumnExpr { operator_class, .. }) => operator_class,
-        }
-    }
-
-    pub(crate) fn nulls(&self) -> Option<NullOrdering> {
-        match self {
-            IndexColumn::TableColumn(IndexColumnTableColumn { nulls, .. }) => *nulls,
-            IndexColumn::Expr(IndexColumnExpr { nulls, .. }) => *nulls,
-        }
-    }
-
     /// Set index operator class. Only available on Postgres.
     pub fn with_operator_class<I: IntoIden>(mut self, operator_class: I) -> Self {
         match self {
@@ -70,7 +54,7 @@ impl IndexColumn {
         self
     }
 
-    /// Set the position of NULLs in the index (`NULLS FIRST` / `NULLS LAST`).
+    /// Sort NULLs before non-NULLs in the index (`NULLS FIRST`).
     /// Only available on Postgres; other backends ignore it.
     ///
     /// # Examples
@@ -81,7 +65,30 @@ impl IndexColumn {
     /// let index = Index::create()
     ///     .name("idx-glyph-aspect")
     ///     .table(Glyph::Table)
-    ///     .col(IndexColumn::from((Glyph::Aspect, IndexOrder::Desc)).with_nulls(NullOrdering::Last))
+    ///     .col(Glyph::Aspect.into_index_column().nulls_first())
+    ///     .to_owned();
+    ///
+    /// assert_eq!(
+    ///     index.to_string(PostgresQueryBuilder),
+    ///     r#"CREATE INDEX "idx-glyph-aspect" ON "glyph" ("aspect" NULLS FIRST)"#
+    /// );
+    /// ```
+    pub fn nulls_first(self) -> Self {
+        self.with_nulls(NullOrdering::First)
+    }
+
+    /// Sort NULLs after non-NULLs in the index (`NULLS LAST`).
+    /// Only available on Postgres; other backends ignore it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sea_query::{tests_cfg::*, *};
+    ///
+    /// let index = Index::create()
+    ///     .name("idx-glyph-aspect")
+    ///     .table(Glyph::Table)
+    ///     .col(IndexColumn::from((Glyph::Aspect, IndexOrder::Desc)).nulls_last())
     ///     .to_owned();
     ///
     /// assert_eq!(
@@ -93,12 +100,14 @@ impl IndexColumn {
     ///     r#"CREATE INDEX "idx-glyph-aspect" ON "glyph" ("aspect" DESC)"#
     /// );
     /// ```
-    pub fn with_nulls(mut self, nulls: NullOrdering) -> Self {
+    pub fn nulls_last(self) -> Self {
+        self.with_nulls(NullOrdering::Last)
+    }
+
+    fn with_nulls(mut self, nulls: NullOrdering) -> Self {
         match self {
-            IndexColumn::TableColumn(ref mut index_column_table_column) => {
-                index_column_table_column.nulls = Some(nulls);
-            }
-            IndexColumn::Expr(ref mut index_column_expr) => index_column_expr.nulls = Some(nulls),
+            IndexColumn::TableColumn(ref mut column) => column.nulls = Some(nulls),
+            IndexColumn::Expr(ref mut column) => column.nulls = Some(nulls),
         };
         self
     }

@@ -180,23 +180,37 @@ fn create_13() {
         Index::create()
             .name("idx-glyph-aspect-image")
             .table(Glyph::Table)
-            .col(
-                IndexColumn::from((Glyph::Aspect, IndexOrder::Desc)).with_nulls(NullOrdering::Last)
-            )
-            .col(
-                Glyph::Image
-                    .into_index_column()
-                    .with_nulls(NullOrdering::First)
-            )
+            .col(IndexColumn::from((Glyph::Aspect, IndexOrder::Desc)).nulls_last())
+            .col(Glyph::Image.into_index_column().nulls_first())
             .col(
                 IndexColumn::from((
                     Expr::col(Glyph::Aspect).mul(Expr::col(Glyph::Id)),
                     IndexOrder::Asc,
                 ))
-                .with_nulls(NullOrdering::First)
+                .nulls_first()
             )
             .to_string(PostgresQueryBuilder),
         r#"CREATE INDEX "idx-glyph-aspect-image" ON "glyph" ("aspect" DESC NULLS LAST, "image" NULLS FIRST, ("aspect" * "id") ASC NULLS FIRST)"#
+    );
+}
+
+#[test]
+fn create_14() {
+    assert_eq!(
+        Index::create()
+            .name("idx-glyph-image-aspect")
+            .table(Glyph::Table)
+            .col(
+                IndexColumn::from((Glyph::Image, IndexOrder::Desc))
+                    .with_operator_class("text_pattern_ops")
+                    .nulls_last()
+            )
+            .col(
+                IndexColumn::from((Func::lower(Expr::col(Glyph::Image)), IndexOrder::Asc))
+                    .with_operator_class("text_pattern_ops")
+            )
+            .to_string(PostgresQueryBuilder),
+        r#"CREATE INDEX "idx-glyph-image-aspect" ON "glyph" ("image" text_pattern_ops DESC NULLS LAST, (LOWER("image")) text_pattern_ops ASC)"#
     );
 }
 
